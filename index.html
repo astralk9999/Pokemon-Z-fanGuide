@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pokemon Z - Guia Completa</title>
+  <link rel="stylesheet" href="css/style.css?v=15">
+</head>
+<body>
+  <header class="header">
+    <button class="menu-toggle" onclick="toggleSidebar()">&#9776;</button>
+    <div class="logo">Pokemon <span>Z</span> Guia</div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Buscar Pokemon, zona, objeto..." autocomplete="off">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <nav class="nav-tabs" id="navTabs">
+      <button class="nav-tab active" data-view="home">Inicio</button>
+      <button class="nav-tab" data-view="locations">Zonas</button>
+      <button class="nav-tab" data-view="pokedex">Pokedex</button>
+      <button class="nav-tab" data-view="items">Objetos</button>
+      <button class="nav-tab" data-view="moves">Movimientos</button>
+      <button class="nav-tab" data-view="trainers">Entrenadores</button>
+      <button class="nav-tab" data-view="walkthrough">Guia</button>
+      <button class="nav-tab" data-view="simulator">Simulador</button>
+    </nav>
+  </header>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="mainContent">
+    <div class="loading">Cargando datos...</div>
+  </main>
+
+  <script src="js/app.js?v=15"></script>
+</body>
+</html>
