@@ -1762,6 +1762,12 @@ function toggleSidebar() {
 
 // ===== SIMULATOR =====
 let simWeather = 'none'; // 'none','rain','sun','sand','snow'
+let simTerrain = 'none'; // 'none','electric','grassy','psychic','misty'
+let simTrickRoom = false;
+
+function isGrounded(resolved) {
+  return resolved.type1 !== 'FLYING' && resolved.type2 !== 'FLYING' && resolved.ability !== 'LEVITATE';
+}
 
 const BATTLE_ITEMS = [
   {id:'CHOICEBAND',name:'Cinta Elegida',effect:'atkMult',val:1.5},
@@ -1958,6 +1964,9 @@ function analyzeMoves(attacker, defender) {
   const bi = attacker.battleItem;
   const defBi = defender.battleItem;
 
+  const attackerGrounded = isGrounded(attacker);
+  const defenderGrounded = isGrounded(defender);
+
   return moves.map(m => {
     if (m.category === 'Status') return { move: m, damage:{min:0,max:0}, effectiveness:1, percentHP:{min:0,max:0}, canKO:false, isStatus:true, mods:[] };
 
@@ -2043,6 +2052,13 @@ function analyzeMoves(attacker, defender) {
 
     // Solar Power: +50% SpAtk in sun (already in stat? No, apply as damage mult)
     if (atkAbility === 'SOLARPOWER' && simWeather === 'sun' && m.category === 'Special') { extra *= 1.3; mods.push({type:'ability',text:'P.Solar'}); }
+
+    // Terrains
+    if (simTerrain === 'electric' && moveType === 'ELECTRIC' && attackerGrounded) { extra *= 1.3; mods.push({type:'terrain',text:'C.Electrico'}); }
+    if (simTerrain === 'grassy' && moveType === 'GRASS' && attackerGrounded) { extra *= 1.3; mods.push({type:'terrain',text:'C.Hierba+'}); }
+    if (simTerrain === 'grassy' && defenderGrounded && ['EARTHQUAKE','BULLDOZE','MAGNITUDE'].includes(m.internalName)) { extra *= 0.5; mods.push({type:'terrain',text:'C.Hierba-'}); }
+    if (simTerrain === 'psychic' && moveType === 'PSYCHIC' && attackerGrounded) { extra *= 1.3; mods.push({type:'terrain',text:'C.Psiquico'}); }
+    if (simTerrain === 'misty' && moveType === 'DRAGON' && defenderGrounded) { extra *= 0.5; mods.push({type:'terrain',text:'C.Niebla'}); }
 
     // Item modifiers
     if (bi) {
@@ -2190,6 +2206,16 @@ function simSetWeather(w) {
   renderSimulator($('mainContent'));
 }
 
+function simSetTerrain(t) {
+  simTerrain = t;
+  renderSimulator($('mainContent'));
+}
+
+function simToggleTrickRoom() {
+  simTrickRoom = !simTrickRoom;
+  renderSimulator($('mainContent'));
+}
+
 function simClear(prefix) {
   if (prefix === 'enemy') { simEnemy = null; simEnemySearch = ''; }
   else { simPlayer = null; simPlayerSearch = ''; }
@@ -2330,8 +2356,15 @@ function renderSimulatorResults() {
   html += `</div></div>`;
 
   // 2. Speed comparison
-  const faster = player.spdStat > enemy.spdStat ? 'player' : player.spdStat < enemy.spdStat ? 'enemy' : 'tie';
-  html += `<div class="card sim-section"><h3>Velocidad</h3><div class="sim-speed">`;
+  let faster;
+  if (simTrickRoom) {
+    faster = player.spdStat < enemy.spdStat ? 'player' : player.spdStat > enemy.spdStat ? 'enemy' : 'tie';
+  } else {
+    faster = player.spdStat > enemy.spdStat ? 'player' : player.spdStat < enemy.spdStat ? 'enemy' : 'tie';
+  }
+
+  const trLabel = simTrickRoom ? ' <span class="sim-tr-badge">Espacio Raro</span>' : '';
+  html += `<div class="card sim-section"><h3>Velocidad${trLabel}</h3><div class="sim-speed">`;
   if (faster === 'player') html += `<span class="faster">Tu ${player.name} (${player.spdStat})</span> ataca primero que <span class="slower">${enemy.name} (${enemy.spdStat})</span>`;
   else if (faster === 'enemy') html += `<span class="faster">${enemy.name} (${enemy.spdStat})</span> ataca primero que <span class="slower">tu ${player.name} (${player.spdStat})</span>`;
   else html += `Misma velocidad (${player.spdStat}) — el orden es aleatorio`;
@@ -2534,6 +2567,25 @@ function renderSimulator(main) {
   for (const w of weathers) {
     html += `<button class="sim-weather-btn ${simWeather===w.id?'active':''}" data-w="${w.id}" onclick="simSetWeather('${w.id}')">${w.icon} ${w.label}</button>`;
   }
+  html += `</div>`;
+
+  // Terrain bar
+  html += `<div class="sim-weather-bar terrain"><label>Campo:</label>`;
+  const terrains = [
+    {id:'none',icon:'—',label:'Ninguno'},
+    {id:'electric',icon:'⚡',label:'Electrico'},
+    {id:'grassy',icon:'🌿',label:'Hierba'},
+    {id:'psychic',icon:'🧠',label:'Psiquico'},
+    {id:'misty',icon:'✨',label:'Niebla'}
+  ];
+  for (const t of terrains) {
+    html += `<button class="sim-terrain-btn ${simTerrain===t.id?'active':''}" data-t="${t.id}" onclick="simSetTerrain('${t.id}')">${t.icon} ${t.label}</button>`;
+  }
+  html += `</div>`;
+
+  // Trick Room toggle
+  html += `<div class="sim-weather-bar tr"><label>Otros:</label>`;
+  html += `<button class="sim-tr-btn ${simTrickRoom?'active':''}" onclick="simToggleTrickRoom()">🔄 Espacio Raro</button>`;
   html += `</div>`;
 
   html += `<div class="sim-layout">`;

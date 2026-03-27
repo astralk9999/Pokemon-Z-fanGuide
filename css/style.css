@@ -1398,3 +1398,37 @@ body {
   }
 }
 
+/* ===== TERRAINS & TRICK ROOM ===== */
+.sim-weather-bar.terrain { margin-bottom: 8px; border-top: 1px solid var(--border); padding-top: 12px; }
+.sim-weather-bar.tr { margin-bottom: 20px; }
+
+.sim-terrain-btn {
+  padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--bg-secondary); color: var(--text-secondary);
+  cursor: pointer; font-size: 0.85rem; font-weight: 600;
+  transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+}
+.sim-terrain-btn:hover { background: var(--bg-hover); border-color: var(--accent); }
+.sim-terrain-btn.active[data-t="electric"] { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+.sim-terrain-btn.active[data-t="grassy"] { background: #dcfce7; border-color: #22c55e; color: #166534; }
+.sim-terrain-btn.active[data-t="psychic"] { background: #fce7f3; border-color: #ec4899; color: #9d174d; }
+.sim-terrain-btn.active[data-t="misty"] { background: #f3e8ff; border-color: #a855f7; color: #6b21a8; }
+.sim-terrain-btn.active[data-t="none"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.sim-tr-btn {
+  padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--bg-secondary); color: var(--text-secondary);
+  cursor: pointer; font-size: 0.85rem; font-weight: 600;
+  transition: all 0.2s;
+}
+.sim-tr-btn:hover { background: var(--bg-hover); }
+.sim-tr-btn.active {
+  background: #ede9fe; border-color: #8b5cf6; color: #5b21b6;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+}
+
+.sim-tr-badge {
+  font-size: 0.7rem; background: #8b5cf6; color: white;
+  padding: 2px 8px; border-radius: 10px; margin-left: 8px;
+  vertical-align: middle; text-transform: uppercase;
+}
