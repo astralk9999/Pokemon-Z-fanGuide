@@ -1458,27 +1458,54 @@ function importTrainerToSim(trainerIndex, pkIndex = 0) {
   // Preparar movimientos
   let moves = (pkData.moves || []).map(m => cleanStr(m)).filter(m => m && m !== 'Ninguno');
   if (moves.length === 0) {
-    // Si no tiene movimientos, usar los últimos 4 por nivel
     moves = getLevelMoves(p, pkData.level);
   }
 
-  // Preparar objeto
+  // Preparar objeto - Mejorado para mapear a BATTLE_ITEMS
   const item = pkData.item ? cleanStr(pkData.item) : null;
-  const itemInternal = item ? (D.itemByName[item]?.internalName || item) : null;
+  let itemInternal = null;
+  if (item) {
+    const itLower = item.toLowerCase();
+    const bi = BATTLE_ITEMS.find(i => 
+      i.id.toLowerCase() === itLower || 
+      i.name.toLowerCase() === itLower ||
+      itLower.includes(i.name.toLowerCase())
+    );
+    if (bi) {
+      itemInternal = bi.id;
+    } else {
+      itemInternal = D.itemByName[item]?.internalName || item;
+    }
+  }
+
+  // Auto-detectar forma Mega si el nombre en pkData.species la contiene
+  let formIndex = null;
+  const speciesLower = pkData.species.toLowerCase();
+  if (speciesLower.includes('mega')) {
+    const forms = D.formsManifest[p.id] || [];
+    const idx = forms.findIndex(f => (f.name || '').toLowerCase().includes('mega'));
+    if (idx !== -1) formIndex = idx;
+  }
 
   // Configurar slot del simulador
   simEnemy = {
     pokemon: p,
-    formIndex: null, // Podríamos intentar detectar formas si el nombre coincide
+    formIndex: formIndex,
     level: pkData.level,
     ability: pkData.ability || (p.abilities && p.abilities[0]) || null,
     item: itemInternal,
     boosts: { atk: 0, def: 0, spatk: 0, spdef: 0, spd: 0 },
-    customMoves: moves // Guardaremos estos para mostrarlos preferencialmente si existen
+    customMoves: moves
   };
 
-  // Navegar al simulador
   navigate('simulator');
+}
+
+function simSelectForm(prefix, index) {
+  const slot = prefix === 'enemy' ? simEnemy : simPlayer;
+  if (!slot) return;
+  slot.formIndex = index === "" ? null : parseInt(index);
+  renderSimulator($('mainContent'));
 }
 
 function renderTrainers(main) {
@@ -1563,12 +1590,24 @@ function renderTrainers(main) {
       const types = p ? `${typeBadge(p.type1)}${p.type2 ? ' ' + typeBadge(p.type2) : ''}` : '';
       const itemObj = pk.item ? D.itemByName[pk.item] : null;
       const itemName = itemObj ? itemObj.name : (pk.item || '');
-      html += `<div class="trainer-pokemon" ${p ? `onclick="navigate('pokemon',${p.id})" style="cursor:pointer"` : ''}>
-        ${p ? `<img class="pokemon-icon" src="${iconUrl(p)}" loading="lazy" onerror="this.style.display='none'">` : ''}
-        <strong>${p ? p.name : pk.species}</strong>
-        <span class="trainer-pokemon-level">Nv.${pk.level}</span>
-        ${types}
-        ${itemName ? `<span class="trainer-pokemon-item">${itemName}</span>` : ''}
+
+      // Obtener movimientos para mostrar en la pestaña de entrenadores
+      let pkMoves = (pk.moves || []).map(m => m.replace(/\n/g, ' ')).filter(m => m && m !== 'Ninguno');
+      if (pkMoves.length === 0 && p) {
+        pkMoves = getLevelMoves(p, pk.level);
+      }
+
+      html += `<div class="trainer-pokemon" ${p ? `onclick="navigate('pokemon',${p.id})" style="cursor:pointer; flex-direction:column; align-items:flex-start;"` : ''}>
+        <div style="display:flex; align-items:center; gap:6px; width:100%">
+          ${p ? `<img class="pokemon-icon" src="${iconUrl(p)}" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <div style="flex:1">
+            <strong>${p ? p.name : pk.species}</strong>
+            <span class="trainer-pokemon-level">Nv.${pk.level}</span>
+          </div>
+          ${types}
+        </div>
+        ${itemName ? `<div class="trainer-pokemon-item" style="margin:2px 0 4px 0">${itemName}</div>` : ''}
+        ${pkMoves.length > 0 ? `<div class="trainer-pokemon-moves">${pkMoves.map(m => `<span class="move-tag">${m}</span>`).join('')}</div>` : ''}
       </div>`;
     }
     html += '</div></div>';
