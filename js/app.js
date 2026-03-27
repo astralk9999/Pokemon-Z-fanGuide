@@ -1541,42 +1541,38 @@ function renderWalkthrough(main, section) {
     return;
   }
 
-  const key = section || 'historia';
-  const data = D.walkthrough[key];
-  if (!data) { main.innerHTML = '<p>Seccion no encontrada</p>'; return; }
-
-  const page = WALKTHROUGH_PAGES[key] || 1;
-
-  // Si ya estamos en la vista de la Guia y existe el visor de PDF, solo actualizamos el estado sin recargarlo entero.
+  // Si ya existe el iframe, no recargar
   const existingIframe = main.querySelector('iframe.pdf-viewer');
   if (existingIframe) {
-    const btns = main.querySelectorAll('.walkthrough-section-btn');
-    btns.forEach(b => b.classList.remove('active'));
-    
-    const activeBtn = Array.from(btns).find(b => b.getAttribute('onclick').includes(`'${key}'`));
-    if (activeBtn) activeBtn.classList.add('active');
-    
-    const header = main.querySelector('.location-header h1');
-    if (header) header.textContent = data.title;
-    
-    // Enviar instrucción al visor interno para saltar a la página
-    existingIframe.contentWindow.location.hash = 'page=' + page;
     return;
   }
 
-  let html = `<div class="location-header"><h1>${data.title}</h1></div>`;
+  let html = `<div class="location-header"><h1>Guía Oficial Completa</h1></div>`;
 
-  html += `<div class="walkthrough-section-nav">`;
-  for (const [k, v] of Object.entries(D.walkthrough)) {
-    html += `<button class="walkthrough-section-btn ${k === key ? 'active' : ''}" onclick="navigate('walkthrough','${k}')">${v.title}</button>`;
-  }
-  html += '</div>';
+  // Barra de búsqueda en lugar de botones
+  html += `<div class="pdf-search-bar">
+    <input type="text" id="pdfSearchInput" placeholder="🔍 Buscar palabras en el documento..." autocomplete="off" onkeydown="if(event.key === 'Enter') searchPDF()">
+    <button class="pdf-search-btn" onclick="searchPDF()">Buscar</button>
+  </div>`;
 
   html += `<div class="walkthrough-content pdf-container" style="padding:0; overflow:hidden;">
-    <iframe src="pdfjs/web/viewer.html?file=../../guia.pdf#page=${page}" class="pdf-viewer" style="border:none;"></iframe>
+    <iframe src="pdfjs/web/viewer.html?file=../../guia.pdf#page=1" class="pdf-viewer" style="border:none;"></iframe>
   </div>`;
 
   main.innerHTML = html;
+}
+
+function searchPDF() {
+  const input = document.getElementById('pdfSearchInput');
+  const iframe = document.querySelector('iframe.pdf-viewer');
+  if (input && iframe) {
+    const q = input.value.trim();
+    if (q) {
+      iframe.contentWindow.location.hash = 'search=' + encodeURIComponent(q);
+    } else {
+      iframe.contentWindow.location.hash = 'page=1';
+    }
+  }
 }
 
 // ===== PAGINATION HELPER =====
