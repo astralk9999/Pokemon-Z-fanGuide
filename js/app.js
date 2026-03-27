@@ -213,6 +213,7 @@ function render() {
     case 'items': renderItems(main); break;
     case 'item': renderItemDetail(main, currentDetail); break;
     case 'moves': renderMoves(main); break;
+    case 'move': renderMoveDetail(main, currentDetail); break;
     case 'trainers': renderTrainers(main); break;
     case 'walkthrough': renderWalkthrough(main, currentDetail); break;
     case 'simulator': renderSimulator(main); break;
@@ -1335,6 +1336,75 @@ function renderMoves(main) {
   if (movesSearch) restoreFocus('movesSearch');
 }
 
+// ===== MOVE DETAIL =====
+function renderMoveDetail(main, internalName) {
+  const m = D.moveByName[internalName];
+  if (!m) { main.innerHTML = '<p>Movimiento no encontrado</p>'; return; }
+
+  const catClass = m.category === 'Physical' ? 'category-physical' : m.category === 'Special' ? 'category-special' : 'category-status';
+  const catName = m.category === 'Physical' ? 'Fisico' : m.category === 'Special' ? 'Especial' : 'Estado';
+
+  let html = `<div class="location-header"><h1>${m.name}</h1>
+    <p class="subtitle">${m.internalName}</p></div>`;
+
+  html += `<div class="card">
+    <div class="card-title">Informacion</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));gap:16px">
+      <div><span style="color:var(--text-muted)">Tipo:</span> ${typeBadge(m.type)}</div>
+      <div><span style="color:var(--text-muted)">Categoria:</span> <span class="${catClass}">${catName}</span></div>
+      <div><span style="color:var(--text-muted)">Poder:</span> <strong>${m.power || '-'}</strong></div>
+      <div><span style="color:var(--text-muted)">Precision:</span> <strong>${m.accuracy || '-'}%</strong></div>
+      <div><span style="color:var(--text-muted)">PP:</span> <strong>${m.pp}</strong></div>
+      ${m.priority !== 0 ? `<div><span style="color:var(--text-muted)">Prioridad:</span> <strong>${m.priority > 0 ? '+' : ''}${m.priority}</strong></div>` : ''}
+    </div>
+    <p style="margin-top:16px;font-size:0.95rem">${m.description || ''}</p>
+  </div>`;
+
+  // Who learns it
+  const byLevel = D.pokemon.filter(p => p.moves && p.moves.some(mv => mv.move === internalName));
+  const byTM = D.tms[internalName] ? D.tms[internalName].map(name => D.pokemonByName[name]).filter(Boolean) : [];
+  const byEgg = D.pokemon.filter(p => p.eggMoves && p.eggMoves.includes(internalName));
+
+  if (byLevel.length) {
+    html += `<div class="card"><div class="card-title">Aprendido por Nivel (${byLevel.length})</div>
+      <div class="pokemon-grid-mini">`;
+    for (const p of byLevel.sort((a,b) => a.id - b.id)) {
+      const lv = p.moves.find(mv => mv.move === internalName).level;
+      html += `<div class="mini-pk-card" onclick="navigate('pokemon',${p.id})">
+        <img src="${iconUrl(p)}" width="32" height="32">
+        <span>${p.name}</span> <small>Nv.${lv}</small>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  if (byTM.length) {
+    html += `<div class="card"><div class="card-title">Aprendido por MT (${byTM.length})</div>
+      <div class="pokemon-grid-mini">`;
+    for (const p of byTM.sort((a,b) => a.id - b.id)) {
+      html += `<div class="mini-pk-card" onclick="navigate('pokemon',${p.id})">
+        <img src="${iconUrl(p)}" width="32" height="32">
+        <span>${p.name}</span>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  if (byEgg.length) {
+    html += `<div class="card"><div class="card-title">Movimiento Huevo (${byEgg.length})</div>
+      <div class="pokemon-grid-mini">`;
+    for (const p of byEgg.sort((a,b) => a.id - b.id)) {
+      html += `<div class="mini-pk-card" onclick="navigate('pokemon',${p.id})">
+        <img src="${iconUrl(p)}" width="32" height="32">
+        <span>${p.name}</span>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  main.innerHTML = html;
+}
+
 // ===== TRAINERS =====
 const TRAINERS_PER_PAGE = 30;
 
@@ -1533,15 +1603,21 @@ function renderWalkthrough(main, section) {
     return;
   }
 
-  // Si ya existe el iframe, no recargar
+  const page = (section && WALKTHROUGH_PAGES[section]) || 1;
+  const pdfUrl = `pdfjs/web/viewer.html?file=../../guia.pdf#page=${page}`;
+
+  // Si ya existe el iframe, solo actualizamos el src si ha cambiado la página
   const existingIframe = main.querySelector('iframe.pdf-viewer');
   if (existingIframe) {
+    if (!existingIframe.src.endsWith(`#page=${page}`)) {
+       existingIframe.src = pdfUrl;
+    }
     return;
   }
 
   // Centrado absoluto del visor ocupando todo el ancho posible hasta 1200px
   main.innerHTML = `<div class="walkthrough-content pdf-container" style="padding:0; margin:0 auto; overflow:hidden; display:flex; justify-content:center; align-items:center; height: 85vh; width: 100%; max-width: 1200px;">
-    <iframe src="pdfjs/web/viewer.html?file=../../guia.pdf#page=1" class="pdf-viewer" style="border:none; width:100%; height:100%; border-radius:8px; box-shadow:0 8px 16px rgba(0,0,0,0.4);"></iframe>
+    <iframe src="${pdfUrl}" class="pdf-viewer" style="border:none; width:100%; height:100%; border-radius:8px; box-shadow:0 8px 16px rgba(0,0,0,0.4);"></iframe>
   </div>`;
 }
 
@@ -1590,7 +1666,7 @@ function setupSearch() {
     }
     for (const m of D.moves) {
       if (m.name && m.name.toLowerCase().includes(q))
-        matches.push({ type: 'Movimiento', name: m.name });
+        matches.push({ type: 'Movimiento', name: m.name, action: () => navigate('move', m.internalName) });
       if (matches.length > 40) break;
     }
 

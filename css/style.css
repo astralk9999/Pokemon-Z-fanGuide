@@ -1243,3 +1243,39 @@ body {
   background: #333;
 }
 
+/* Mini grids for move details */
+.pokemon-grid-mini {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.mini-pk-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+  font-size: 0.85rem;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.mini-pk-card:hover {
+  transform: translateY(-2px);
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+}
+
+.mini-pk-card img {
+  image-rendering: pixelated;
+}
+
+.mini-pk-card small {
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
