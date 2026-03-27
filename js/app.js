@@ -46,7 +46,10 @@ async function loadData() {
   keys.forEach((k, i) => D[k] = results[i]);
 
   for (const p of D.pokemon) { if (p.internalName) D.pokemonByName[p.internalName] = p; }
-  for (const m of D.moves)   { if (m.internalName) D.moveByName[m.internalName] = m; }
+  for (const m of D.moves) {
+    if (m.internalName) D.moveByName[m.internalName] = m;
+    if (m.name) D.moveByName[m.name] = m; // Mapear tambien por nombre en espanol para importacion
+  }
   for (const a of D.abilities){ if (a.internalName) D.abilityByName[a.internalName] = a; }
   D.abilityByDisplayName = {};
   for (const a of D.abilities){ if (a.name) D.abilityByDisplayName[a.name] = a; }
@@ -1461,11 +1464,19 @@ function importTrainerToSim(trainerIndex, pkIndex = 0) {
     moves = getLevelMoves(p, pkData.level);
   }
 
-  // Preparar objeto - Mejorado para mapear a BATTLE_ITEMS
-  const item = pkData.item ? cleanStr(pkData.item) : null;
+  // Preparar objeto - Mejorado para mapear a BATTLE_ITEMS y evitar basura
+  const rawItem = pkData.item ? cleanStr(pkData.item) : null;
   let itemInternal = null;
-  if (item) {
-    const itLower = item.toLowerCase();
+  
+  const isRealItem = (name) => {
+    if (!name || name.length < 3) return false;
+    const n = name.toLowerCase();
+    if (n.includes('ruta') || n.includes('pueblo') || n.includes('ciudad') || n.includes('cueva')) return false;
+    return true;
+  };
+
+  if (rawItem && isRealItem(rawItem)) {
+    const itLower = rawItem.toLowerCase();
     const bi = BATTLE_ITEMS.find(i => 
       i.id.toLowerCase() === itLower || 
       i.name.toLowerCase() === itLower ||
@@ -1474,7 +1485,7 @@ function importTrainerToSim(trainerIndex, pkIndex = 0) {
     if (bi) {
       itemInternal = bi.id;
     } else {
-      itemInternal = D.itemByName[item]?.internalName || item;
+      itemInternal = D.itemByName[rawItem]?.internalName || null;
     }
   }
 
@@ -1597,6 +1608,17 @@ function renderTrainers(main) {
         pkMoves = getLevelMoves(p, pk.level);
       }
 
+      // Filtrado de objetos basura (rutas, nombres de personajes, etc.)
+      const rawItemName = itemObj ? itemObj.name : (pk.item || '');
+      const isRealItem = (name) => {
+        if (!name || name.length < 3) return false;
+        const n = name.toLowerCase();
+        if (n.includes('ruta') || n.includes('pueblo') || n.includes('ciudad') || n.includes('cueva')) return false;
+        // Solo mostrar si existe en la base de datos de items o es un objeto de batalla conocido
+        return D.itemByName[name] || BATTLE_ITEMS.some(bi => bi.name.toLowerCase() === n || bi.id.toLowerCase() === n);
+      };
+      const displayItem = isRealItem(rawItemName) ? rawItemName : '';
+
       html += `<div class="trainer-pokemon" ${p ? `onclick="navigate('pokemon',${p.id})" style="cursor:pointer; flex-direction:column; align-items:flex-start;"` : ''}>
         <div style="display:flex; align-items:center; gap:6px; width:100%">
           ${p ? `<img class="pokemon-icon" src="${iconUrl(p)}" loading="lazy" onerror="this.style.display='none'">` : ''}
@@ -1606,8 +1628,8 @@ function renderTrainers(main) {
           </div>
           ${types}
         </div>
-        ${itemName ? `<div class="trainer-pokemon-item" style="margin:2px 0 4px 0">${itemName}</div>` : ''}
-        ${pkMoves.length > 0 ? `<div class="trainer-pokemon-moves">${pkMoves.map(m => `<span class="move-tag">${m}</span>`).join('')}</div>` : ''}
+        ${displayItem ? `<div class="trainer-pokemon-item" style="margin:2px 0 4px 0">${displayItem}</div>` : ''}
+        ${pkMoves.length > 0 ? `<div class="trainer-pokemon-moves">${pkMoves.map(m => `<span class="move-tag">⭐ ${m}</span>`).join('')}</div>` : ''}
       </div>`;
     }
     html += '</div></div>';
@@ -2166,7 +2188,7 @@ function simSelectForm(prefix, val) {
   const slot = prefix === 'enemy' ? simEnemy : simPlayer;
   if (!slot) return;
   slot.formIndex = val === '' ? null : parseInt(val);
-  renderSimulatorResults();
+  renderSimulator($('mainContent'));
 }
 
 function simSetLevel(prefix, val) {
@@ -2532,8 +2554,7 @@ function renderMoveTable(moves, isPlayer, attackerType1, attackerType2) {
     }
 
     const prioTxt = m.priority && m.priority > 0 ? ` <span class="sim-priority">+${m.priority}</span>` : (m.priority < 0 ? ` <span class="sim-priority neg">${m.priority}</span>` : '');
-    const isTrainerMove = m.source === 'Entrenador';
-    const star = isTrainerMove ? '<span class="sim-trainer-star" title="Movimiento definido del Entrenador">⭐</span>' : '';
+    const star = m.source === 'Entrenador' ? '<span class="sim-trainer-star">⭐</span>' : '';
 
     html += `<tr class="sim-row ${ec}${best}">`;
     html += `<td class="sim-td-name">${star}${m.name || m.internalName}${stab}${prioTxt}${modHtml}</td>`;

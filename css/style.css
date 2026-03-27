@@ -1462,9 +1462,11 @@ body {
 }
 
 .sim-trainer-star {
-  color: #f59e0b;
-  margin-right: 4px;
+  color: #ffcc00;
+  margin-right: 6px;
   cursor: help;
-  filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.3));
-  font-size: 0.9rem;
+  filter: drop-shadow(0 0 2px rgba(255, 204, 0, 0.6));
+  font-size: 1rem;
+  font-weight: bold;
+  vertical-align: middle;
 }
