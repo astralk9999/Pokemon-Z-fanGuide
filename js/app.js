@@ -1634,7 +1634,9 @@ const BATTLE_ITEMS = [
   {id:'WISEGLASSES',name:'Gafas Especiales',effect:'specMult',val:1.1},
   {id:'ASSAULTVEST',name:'Chaleco Asalto',effect:'spdefMult',val:1.5},
   {id:'EVIOLITE',name:'Mineral Evol.',effect:'eviolite',val:1.5},
-  {id:'LEFTOVERS',name:'Restos',effect:'none'},
+  {id:'QUICKCLAW',name:'Garra Rapida',effect:'none'},
+  {id:'LEFTOVERS',name:'Restos',effect:'none', recovery: 1/16},
+  {id:'SITRUSBERRY',name:'Baya Cidra',effect:'none', recovery: 1/4, once: true},
   {id:'FOCUSSASH',name:'Bandana',effect:'sash'},
   {id:'CHARCOAL',name:'Carbon',effect:'typeMult',type:'FIRE',val:1.2},
   {id:'MYSTICWATER',name:'Agua Mistica',effect:'typeMult',type:'WATER',val:1.2},
@@ -2176,6 +2178,17 @@ function renderSimulatorResults() {
   else html += `Misma velocidad (${player.spdStat}) — el orden es aleatorio`;
   html += `</div></div>`;
 
+  // 3. Recovery and items
+  const pRec = player.battleItem?.recovery ? Math.floor(player.hp * player.battleItem.recovery) : 0;
+  const eRec = enemy.battleItem?.recovery ? Math.floor(enemy.hp * enemy.battleItem.recovery) : 0;
+
+  if (pRec > 0 || eRec > 0) {
+    html += `<div class="card sim-section"><h3>Recuperacion (Fin de Turno)</h3><div class="sim-recovery">`;
+    if (pRec > 0) html += `<p>Tu ${player.name} recupera <strong>${pRec} PS</strong> (${player.battleItem.name}).</p>`;
+    if (eRec > 0) html += `<p>${enemy.name} recupera <strong>${eRec} PS</strong> (${enemy.battleItem.name}).</p>`;
+    html += `</div></div>`;
+  }
+
   // 3. Enemy moves vs player
   const enemyMoves = analyzeMoves(enemy, player);
   html += `<div class="card sim-section"><h3>Movimientos de ${enemy.name} contra tu ${player.name}</h3>`;
@@ -2287,8 +2300,10 @@ function renderMoveTable(moves, isPlayer, attackerType1, attackerType2) {
       modHtml = `<div class="sim-mod-tags">${entry.mods.map(mod => `<span class="sim-mod-tag ${mod.type}">${mod.text}</span>`).join('')}</div>`;
     }
 
+    const priority = m.priority && m.priority > 0 ? ` <span class="sim-priority">+${m.priority}</span>` : (m.priority < 0 ? ` <span class="sim-priority neg">${m.priority}</span>` : '');
+
     html += `<tr class="sim-row ${ec}${best}">`;
-    html += `<td class="sim-td-name">${m.name || m.internalName}${stab}${modHtml}</td>`;
+    html += `<td class="sim-td-name">${m.name || m.internalName}${stab}${priority}${modHtml}</td>`;
     html += `<td>${typeBadge(m.type)}</td>`;
     html += `<td><span class="sim-cat ${catCls}">${catTxt}</span></td>`;
     html += `<td class="sim-td-num">${m.power}</td>`;
