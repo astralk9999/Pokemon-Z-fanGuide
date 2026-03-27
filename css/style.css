@@ -1243,9 +1243,3 @@ body {
   background: #333;
 }
 
-/* ===== PDF SEARCH BAR ===== */
-.pdf-search-bar { display: flex; gap: 8px; margin-bottom: 15px; }
-.pdf-search-bar input { flex: 1; padding: 10px 15px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-primary); font-size: 0.95rem; }
-.pdf-search-bar input:focus { border-color: var(--accent); outline: none; }
-.pdf-search-bar button { padding: 10px 20px; border: none; border-radius: 8px; background: var(--accent); color: white; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
-.pdf-search-bar button:hover { opacity: 0.85; }

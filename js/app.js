@@ -1539,46 +1539,10 @@ function renderWalkthrough(main, section) {
     return;
   }
 
-  let html = `<div class="location-header"><h1>Guía Oficial Completa</h1></div>`;
-
-  // Barra de búsqueda en lugar de botones
-  html += `<div class="pdf-search-bar">
-    <input type="text" id="pdfSearchInput" placeholder="🔍 Buscar palabras en el documento..." autocomplete="off" onkeydown="if(event.key === 'Enter') searchPDF('find')">
-    <button class="pdf-search-btn" onclick="searchPDF('find')">Buscar</button>
-    <button class="pdf-search-btn" onclick="searchPDF('findprevious')" title="Anterior (Coincidencia previa)" style="padding: 10px; border-radius: 50%;">▲</button>
-    <button class="pdf-search-btn" onclick="searchPDF('findagain')" title="Siguiente (Próxima coincidencia)" style="padding: 10px; border-radius: 50%;">▼</button>
+  // Centrado absoluto del visor ocupando todo el ancho posible hasta 1200px
+  main.innerHTML = `<div class="walkthrough-content pdf-container" style="padding:0; margin:0 auto; overflow:hidden; display:flex; justify-content:center; align-items:center; height: 85vh; width: 100%; max-width: 1200px;">
+    <iframe src="pdfjs/web/viewer.html?file=../../guia.pdf#page=1" class="pdf-viewer" style="border:none; width:100%; height:100%; border-radius:8px; box-shadow:0 8px 16px rgba(0,0,0,0.4);"></iframe>
   </div>`;
-
-  html += `<div class="walkthrough-content pdf-container" style="padding:0; overflow:hidden;">
-    <iframe src="pdfjs/web/viewer.html?file=../../guia.pdf#page=1" class="pdf-viewer" style="border:none;"></iframe>
-  </div>`;
-
-  main.innerHTML = html;
-}
-
-function searchPDF(action = 'find') {
-  const input = document.getElementById('pdfSearchInput');
-  const iframe = document.querySelector('iframe.pdf-viewer');
-  if (input && iframe) {
-    const q = input.value.trim();
-    if (q) {
-      const app = iframe.contentWindow.PDFViewerApplication;
-      // Usar el controlador de PDF.js para hacer búsquedas avanzadas (Siguiente / Anterior)
-      if (app && app.findController) {
-        app.findController.executeCommand(action, {
-          query: q,
-          phraseSearch: true,
-          caseSensitive: false,
-          highlightAll: true,
-          findPrevious: action === 'findprevious'
-        });
-      } else {
-        iframe.contentWindow.location.hash = 'search=' + encodeURIComponent(q);
-      }
-    } else {
-      iframe.contentWindow.location.hash = 'page=1';
-    }
-  }
 }
 
 // ===== PAGINATION HELPER =====
