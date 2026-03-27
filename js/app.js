@@ -143,7 +143,7 @@ function renderSidebar() {
   const sb = $('sidebar');
   const main = $('mainContent');
   let html = '';
-  const viewsWithSidebar = ['locations','location','pokedex','pokemon','form','walkthrough'];
+  const viewsWithSidebar = ['locations','location','pokedex','pokemon','form'];
   const hasSidebar = viewsWithSidebar.includes(currentView);
 
   if (!hasSidebar) {
@@ -183,14 +183,6 @@ function renderSidebar() {
     }
     if (pokedexFilters.length) {
       html += `<div class="sidebar-item" onclick="pokedexFilters=[];pokedexPage=0;render()" style="color:var(--accent);text-align:center;margin-top:8px">Limpiar filtros</div>`;
-    }
-  } else if (currentView === 'walkthrough') {
-    html += `<div class="sidebar-section">Secciones</div>`;
-    if (D.walkthrough) {
-      for (const [key, val] of Object.entries(D.walkthrough)) {
-        const active = currentDetail === key ? 'active' : '';
-        html += `<div class="sidebar-item ${active}" onclick="navigate('walkthrough','${key}')">${val.title}</div>`;
-      }
     }
   }
   sb.innerHTML = html;
@@ -1551,8 +1543,10 @@ function renderWalkthrough(main, section) {
 
   // Barra de búsqueda en lugar de botones
   html += `<div class="pdf-search-bar">
-    <input type="text" id="pdfSearchInput" placeholder="🔍 Buscar palabras en el documento..." autocomplete="off" onkeydown="if(event.key === 'Enter') searchPDF()">
-    <button class="pdf-search-btn" onclick="searchPDF()">Buscar</button>
+    <input type="text" id="pdfSearchInput" placeholder="🔍 Buscar palabras en el documento..." autocomplete="off" onkeydown="if(event.key === 'Enter') searchPDF('find')">
+    <button class="pdf-search-btn" onclick="searchPDF('find')">Buscar</button>
+    <button class="pdf-search-btn" onclick="searchPDF('findprevious')" title="Anterior (Coincidencia previa)" style="padding: 10px; border-radius: 50%;">▲</button>
+    <button class="pdf-search-btn" onclick="searchPDF('findagain')" title="Siguiente (Próxima coincidencia)" style="padding: 10px; border-radius: 50%;">▼</button>
   </div>`;
 
   html += `<div class="walkthrough-content pdf-container" style="padding:0; overflow:hidden;">
@@ -1562,13 +1556,25 @@ function renderWalkthrough(main, section) {
   main.innerHTML = html;
 }
 
-function searchPDF() {
+function searchPDF(action = 'find') {
   const input = document.getElementById('pdfSearchInput');
   const iframe = document.querySelector('iframe.pdf-viewer');
   if (input && iframe) {
     const q = input.value.trim();
     if (q) {
-      iframe.contentWindow.location.hash = 'search=' + encodeURIComponent(q);
+      const app = iframe.contentWindow.PDFViewerApplication;
+      // Usar el controlador de PDF.js para hacer búsquedas avanzadas (Siguiente / Anterior)
+      if (app && app.findController) {
+        app.findController.executeCommand(action, {
+          query: q,
+          phraseSearch: true,
+          caseSensitive: false,
+          highlightAll: true,
+          findPrevious: action === 'findprevious'
+        });
+      } else {
+        iframe.contentWindow.location.hash = 'search=' + encodeURIComponent(q);
+      }
     } else {
       iframe.contentWindow.location.hash = 'page=1';
     }
