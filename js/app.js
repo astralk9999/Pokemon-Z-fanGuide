@@ -2531,10 +2531,12 @@ function renderMoveTable(moves, isPlayer, attackerType1, attackerType2) {
       modHtml = `<div class="sim-mod-tags">${entry.mods.map(mod => `<span class="sim-mod-tag ${mod.type}">${mod.text}</span>`).join('')}</div>`;
     }
 
-    const priority = m.priority && m.priority > 0 ? ` <span class="sim-priority">+${m.priority}</span>` : (m.priority < 0 ? ` <span class="sim-priority neg">${m.priority}</span>` : '');
+    const prioTxt = m.priority && m.priority > 0 ? ` <span class="sim-priority">+${m.priority}</span>` : (m.priority < 0 ? ` <span class="sim-priority neg">${m.priority}</span>` : '');
+    const isTrainerMove = m.source === 'Entrenador';
+    const star = isTrainerMove ? '<span class="sim-trainer-star" title="Movimiento definido del Entrenador">⭐</span>' : '';
 
     html += `<tr class="sim-row ${ec}${best}">`;
-    html += `<td class="sim-td-name">${m.name || m.internalName}${stab}${priority}${modHtml}</td>`;
+    html += `<td class="sim-td-name">${star}${m.name || m.internalName}${stab}${prioTxt}${modHtml}</td>`;
     html += `<td>${typeBadge(m.type)}</td>`;
     html += `<td><span class="sim-cat ${catCls}">${catTxt}</span></td>`;
     html += `<td class="sim-td-num">${m.power}</td>`;
@@ -2556,7 +2558,9 @@ function renderMoveTable(moves, isPlayer, attackerType1, attackerType2) {
       html += `<div class="sim-table-wrap"><table class="sim-table status"><tbody>`;
       for (const entry of status) {
         const m = entry.move;
-        html += `<tr class="sim-row eff-status"><td class="sim-td-name">${m.name || m.internalName}</td><td>${typeBadge(m.type)}</td><td><span class="sim-cat cat-status">Estado</span></td><td class="sim-td-num">-</td><td class="sim-td-num">${m.accuracy || '-'}%</td><td>-</td><td>-</td><td>${m.source}</td></tr>`;
+        const isTrainerMove = m.source === 'Entrenador';
+        const star = isTrainerMove ? '<span class="sim-trainer-star">⭐</span>' : '';
+        html += `<tr class="sim-row eff-status"><td class="sim-td-name">${star}${m.name || m.internalName}</td><td>${typeBadge(m.type)}</td><td><span class="sim-cat cat-status">Estado</span></td><td class="sim-td-num">-</td><td class="sim-td-num">${m.accuracy || '-'}%</td><td>-</td><td>-</td><td>${m.source}</td></tr>`;
       }
       html += `</tbody></table></div>`;
     }

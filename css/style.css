@@ -1460,3 +1460,11 @@ body {
   transform: translateY(-2px);
   border-color: var(--accent);
 }
+
+.sim-trainer-star {
+  color: #f59e0b;
+  margin-right: 4px;
+  cursor: help;
+  filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.3));
+  font-size: 0.9rem;
+}
