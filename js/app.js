@@ -18,6 +18,7 @@ let simEnemy = null;
 let simPlayer = null;
 let simEnemySearch = '';
 let simPlayerSearch = '';
+let simTrainerContext = null; // Para guardar el entrenador actual importado
 
 // ===== TYPE NAMES =====
 const TYPE_ES = {
@@ -1421,6 +1422,65 @@ function buildTrainerLocationMap() {
   return trainerLocationMap;
 }
 
+function getLevelMoves(pokemon, level) {
+  if (!pokemon || !pokemon.moves) return [];
+  // Filtra movimientos aprendidos hasta el nivel actual, ordena por nivel descendente
+  const learned = pokemon.moves
+    .filter(m => m.level <= level)
+    .sort((a, b) => b.level - a.level);
+  
+  const result = [];
+  const seen = new Set();
+  for (const m of learned) {
+    if (!seen.has(m.move)) {
+      seen.add(m.move);
+      result.push(m.move);
+      if (result.length === 4) break;
+    }
+  }
+  return result;
+}
+
+function importTrainerToSim(trainerIndex, pkIndex = 0) {
+  const trainer = D.trainers[trainerIndex];
+  if (!trainer) return;
+
+  simTrainerContext = trainerIndex;
+  const pkData = trainer.pokemon[pkIndex];
+  if (!pkData) return;
+
+  const p = D.pokemonByName[pkData.species];
+  if (!p) return;
+
+  // Limpiar nombres (quitar saltos de línea de los datos extraídos)
+  const cleanStr = str => str ? str.replace(/\n\s*/g, '').replace(/\s+/g, ' ').trim() : '';
+
+  // Preparar movimientos
+  let moves = (pkData.moves || []).map(m => cleanStr(m)).filter(m => m && m !== 'Ninguno');
+  if (moves.length === 0) {
+    // Si no tiene movimientos, usar los últimos 4 por nivel
+    moves = getLevelMoves(p, pkData.level);
+  }
+
+  // Preparar objeto
+  const item = pkData.item ? cleanStr(pkData.item) : null;
+  const itemInternal = item ? (D.itemByName[item]?.internalName || item) : null;
+
+  // Configurar slot del simulador
+  simEnemy = {
+    pokemon: p,
+    formIndex: null, // Podríamos intentar detectar formas si el nombre coincide
+    level: pkData.level,
+    ability: pkData.ability || (p.abilities && p.abilities[0]) || null,
+    item: itemInternal,
+    boosts: { atk: 0, def: 0, spatk: 0, spdef: 0, spd: 0 },
+    customMoves: moves // Guardaremos estos para mostrarlos preferencialmente si existen
+  };
+
+  // Navegar al simulador
+  navigate('simulator');
+}
+
 function renderTrainers(main) {
   const locMap = buildTrainerLocationMap();
 
@@ -1486,6 +1546,9 @@ function renderTrainers(main) {
         <span style="float:right;font-size:0.78rem;color:var(--text-muted)">
           ${t.pokemon.length} Pokemon | Nv. ${avgLv}${avgLv !== maxLv ? '-' + maxLv : ''}
         </span>
+        <button class="btn-simulate" onclick="importTrainerToSim(${D.trainers.indexOf(t)})">
+          ⚔️ Simular
+        </button>
       </div>`;
 
     if (location) {
@@ -1840,9 +1903,29 @@ function getResolvedPokemon(simSlot) {
   };
 }
 
-function getAllMoves(pokemon) {
+function getAllMoves(simSlot) {
+  const pokemon = simSlot.pokemon;
   const seen = new Set();
   const result = [];
+
+  // Si hay movimientos personalizados (de un entrenador importado), usarlos primero
+  if (simSlot.customMoves && simSlot.customMoves.length) {
+    for (const moveName of simSlot.customMoves) {
+      const m = D.moveByName[moveName];
+      if (m && !seen.has(m.internalName)) {
+        seen.add(m.internalName);
+        result.push({ ...m, source: 'Entrenador' });
+      } else if (!m) {
+        // Fallback para nombres que no coincidan exactamente (intentar búsqueda por nombre)
+        const possibleMove = D.moves.find(mv => mv.name.toLowerCase() === moveName.toLowerCase());
+        if (possibleMove && !seen.has(possibleMove.internalName)) {
+          seen.add(possibleMove.internalName);
+          result.push({ ...possibleMove, source: 'Entrenador' });
+        }
+      }
+    }
+  }
+
   for (const mv of (pokemon.moves || [])) {
     if (!seen.has(mv.move)) {
       seen.add(mv.move);
@@ -1868,7 +1951,7 @@ function getAllMoves(pokemon) {
 }
 
 function analyzeMoves(attacker, defender) {
-  const moves = getAllMoves(attacker.pokemon);
+  const moves = getAllMoves(attacker);
   const eff = getTypeEffectiveness(defender.type1, defender.type2);
   const atkAbility = attacker.ability;
   const defAbility = defender.ability;
@@ -2412,6 +2495,37 @@ function renderMoveTable(moves, isPlayer, attackerType1, attackerType2) {
 
 function renderSimulator(main) {
   let html = `<h2 class="section-title">Simulador de Combate</h2>`;
+
+  // Barra de equipo de entrenador (si hay contexto)
+  if (simTrainerContext !== null) {
+    const trainer = D.trainers[simTrainerContext];
+    const tc = D.trainerTypes[trainer.class];
+    const displayClass = tc ? tc.displayName : trainer.class;
+    
+    html += `<div class="sim-trainer-team">
+      <div class="sim-trainer-team-header">
+        <span>Equipo de ${displayClass} ${trainer.name}</span>
+        <button class="sim-close-trainer" onclick="simTrainerContext=null;renderSimulator($('mainContent'))">Cerrar Equipo</button>
+      </div>
+      <div class="sim-trainer-team-grid">`;
+    
+    trainer.pokemon.forEach((pk, idx) => {
+      const p = D.pokemonByName[pk.species];
+      const pid = p ? String(p.id).padStart(3, '0') : '000';
+      const isActive = simEnemy && simEnemy.pokemon === p && simEnemy.level === pk.level;
+      
+      html += `<div class="sim-trainer-pk ${isActive ? 'active' : ''}" onclick="importTrainerToSim(${simTrainerContext}, ${idx})">
+        <img src="icons/icon${pid}.png" onerror="this.src='sprites/${pid}.png'">
+        <div class="info">
+          <span class="name">${p ? p.name : pk.species}</span>
+          <span class="level">Nv.${pk.level}</span>
+        </div>
+      </div>`;
+    });
+    
+    html += `</div></div>`;
+  }
+
   html += `<p style="color:var(--text-secondary);margin-bottom:16px">Selecciona dos Pokemon para analizar el enfrentamiento. Configura habilidad, objeto, clima y boosts para calculos precisos.</p>`;
 
   // Weather bar

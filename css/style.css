@@ -1279,3 +1279,122 @@ body {
   margin-left: auto;
 }
 
+/* ===== INTEGRACION ENTRENADORES-SIMULADOR ===== */
+.btn-simulate {
+  background: linear-gradient(135deg, var(--accent), #c62d3a);
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  float: right;
+  margin-top: -4px;
+}
+
+.btn-simulate:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
+}
+
+.sim-trainer-team {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sim-trainer-team-header {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sim-trainer-team-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sim-trainer-pk {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 140px;
+}
+
+.sim-trainer-pk:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.sim-trainer-pk.active {
+  border-color: var(--accent);
+  background: rgba(230, 57, 70, 0.1);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.sim-trainer-pk img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+
+.sim-trainer-pk .info {
+  display: flex;
+  flex-direction: column;
+}
+
+.sim-trainer-pk .name {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.sim-trainer-pk .level {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.sim-close-trainer {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sim-close-trainer:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .sim-trainer-pk {
+    flex: 1;
+    min-width: 120px;
+  }
+}
+
