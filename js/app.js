@@ -1519,6 +1519,22 @@ function formatWalkthroughText(text) {
   return html;
 }
 
+const WALKTHROUGH_PAGES = {
+  "dudas_frecuentes": 3,
+  "modos": 6,
+  "historia": 7,
+  "postgame": 70,
+  "habitantes_acrilico": 80,
+  "recetas_crafteo": 82,
+  "ubicacion_mts": 85,
+  "nidos_alfa": 90,
+  "pokemon_legendarios": 95,
+  "megapiedras": 98,
+  "formas_regionales": 100,
+  "ubicacion_pokemon": 105,
+  "creditos": 110
+};
+
 function renderWalkthrough(main, section) {
   if (!D.walkthrough || !Object.keys(D.walkthrough).length) {
     main.innerHTML = '<p>No hay datos del walkthrough disponibles</p>';
@@ -1529,6 +1545,25 @@ function renderWalkthrough(main, section) {
   const data = D.walkthrough[key];
   if (!data) { main.innerHTML = '<p>Seccion no encontrada</p>'; return; }
 
+  const page = WALKTHROUGH_PAGES[key] || 1;
+
+  // Si ya estamos en la vista de la Guia y existe el visor de PDF, solo actualizamos el estado sin recargarlo entero.
+  const existingIframe = main.querySelector('iframe.pdf-viewer');
+  if (existingIframe) {
+    const btns = main.querySelectorAll('.walkthrough-section-btn');
+    btns.forEach(b => b.classList.remove('active'));
+    
+    const activeBtn = Array.from(btns).find(b => b.getAttribute('onclick').includes(`'${key}'`));
+    if (activeBtn) activeBtn.classList.add('active');
+    
+    const header = main.querySelector('.location-header h1');
+    if (header) header.textContent = data.title;
+    
+    // Enviar instrucción al visor interno para saltar a la página
+    existingIframe.contentWindow.location.hash = 'page=' + page;
+    return;
+  }
+
   let html = `<div class="location-header"><h1>${data.title}</h1></div>`;
 
   html += `<div class="walkthrough-section-nav">`;
@@ -1537,8 +1572,9 @@ function renderWalkthrough(main, section) {
   }
   html += '</div>';
 
-  const content = data.content || '';
-  html += `<div class="walkthrough-content">${formatWalkthroughText(content)}</div>`;
+  html += `<div class="walkthrough-content pdf-container" style="padding:0; overflow:hidden;">
+    <iframe src="pdfjs/web/viewer.html?file=../../guia.pdf#page=${page}" class="pdf-viewer" style="border:none;"></iframe>
+  </div>`;
 
   main.innerHTML = html;
 }
@@ -1620,17 +1656,63 @@ function toggleSidebar() {
 }
 
 // ===== SIMULATOR =====
+let simWeather = 'none'; // 'none','rain','sun','sand','snow'
+
+const BATTLE_ITEMS = [
+  {id:'CHOICEBAND',name:'Cinta Elegida',effect:'atkMult',val:1.5},
+  {id:'CHOICESPECS',name:'Gafas Elegidas',effect:'spatkMult',val:1.5},
+  {id:'CHOICESCARF',name:'Panuelo Elegido',effect:'spdMult',val:1.5},
+  {id:'LIFEORB',name:'Vidasfera',effect:'dmgMult',val:1.3},
+  {id:'EXPERTBELT',name:'Cinturon Experto',effect:'seMult',val:1.2},
+  {id:'MUSCLEBAND',name:'Cinta Musculo',effect:'physMult',val:1.1},
+  {id:'WISEGLASSES',name:'Gafas Especiales',effect:'specMult',val:1.1},
+  {id:'ASSAULTVEST',name:'Chaleco Asalto',effect:'spdefMult',val:1.5},
+  {id:'EVIOLITE',name:'Mineral Evol.',effect:'eviolite',val:1.5},
+  {id:'LEFTOVERS',name:'Restos',effect:'none'},
+  {id:'FOCUSSASH',name:'Bandana',effect:'sash'},
+  {id:'CHARCOAL',name:'Carbon',effect:'typeMult',type:'FIRE',val:1.2},
+  {id:'MYSTICWATER',name:'Agua Mistica',effect:'typeMult',type:'WATER',val:1.2},
+  {id:'MAGNET',name:'Iman',effect:'typeMult',type:'ELECTRIC',val:1.2},
+  {id:'MIRACLESEED',name:'Semilla Milagro',effect:'typeMult',type:'GRASS',val:1.2},
+  {id:'NEVERMELTICE',name:'Antiderretir',effect:'typeMult',type:'ICE',val:1.2},
+  {id:'BLACKBELT',name:'Cinturon Negro',effect:'typeMult',type:'FIGHTING',val:1.2},
+  {id:'POISONBARB',name:'Pua Toxica',effect:'typeMult',type:'POISON',val:1.2},
+  {id:'SOFTSAND',name:'Arena Fina',effect:'typeMult',type:'GROUND',val:1.2},
+  {id:'SHARPBEAK',name:'Pico Afilado',effect:'typeMult',type:'FLYING',val:1.2},
+  {id:'TWISTEDSPOON',name:'Cuchara Torcida',effect:'typeMult',type:'PSYCHIC',val:1.2},
+  {id:'SILKSCARF',name:'Panuelo Seda',effect:'typeMult',type:'NORMAL',val:1.2},
+  {id:'SILVERPOWDER',name:'Polvo Plata',effect:'typeMult',type:'BUG',val:1.2},
+  {id:'HARDSTONE',name:'Piedra Dura',effect:'typeMult',type:'ROCK',val:1.2},
+  {id:'SPELLTAG',name:'Hechizo',effect:'typeMult',type:'GHOST',val:1.2},
+  {id:'DRAGONFANG',name:'Colmillo Dragon',effect:'typeMult',type:'DRAGON',val:1.2},
+  {id:'BLACKGLASSES',name:'Gafas Oscuras',effect:'typeMult',type:'DARK',val:1.2},
+  {id:'METALCOAT',name:'Revestimiento Met.',effect:'typeMult',type:'STEEL',val:1.2},
+  {id:'PIXIEPLATE',name:'Tabla Duende',effect:'typeMult',type:'FAIRY',val:1.2},
+];
+
+const ABILITY_IMMUNE = {
+  LEVITATE: 'GROUND', VOLTABSORB: 'ELECTRIC', LIGHTNINGROD: 'ELECTRIC',
+  WATERABSORB: 'WATER', STORMDRAIN: 'WATER', FLASHFIRE: 'FIRE',
+  SAPSIPPER: 'GRASS', EARTHEATER: 'GROUND', MOTORDRIVE: 'ELECTRIC',
+  DESPIERTALLAMA: 'FIRE', DRYSKIN: 'WATER',
+};
+
 function calcHP(base, level) {
-  if (base === 1) return 1; // Shedinja
+  if (base === 1) return 1;
   return Math.floor((2 * base + 31) * level / 100) + level + 10;
 }
 function calcStat(base, level) {
   return Math.floor(((2 * base + 31) * level / 100) + 5);
 }
-function calcDamageRange(level, power, atk, def, stab, typeEff) {
+function boostMult(stage) {
+  if (stage >= 0) return (2 + stage) / 2;
+  return 2 / (2 + Math.abs(stage));
+}
+
+function calcDamageRange(level, power, atk, def, stab, typeEff, extraMult) {
   if (!power || power <= 0 || typeEff === 0) return { min: 0, max: 0 };
   const base = Math.floor(((2 * level / 5 + 2) * power * atk / def) / 50 + 2);
-  const max = Math.floor(base * stab * typeEff);
+  const max = Math.floor(base * stab * typeEff * (extraMult || 1));
   const min = Math.floor(max * 0.85);
   return { min, max };
 }
@@ -1655,16 +1737,62 @@ function getResolvedPokemon(simSlot) {
     }
   }
 
+  const boosts = simSlot.boosts || {atk:0,def:0,spatk:0,spdef:0,spd:0};
+  const selAbility = simSlot.ability || abilities[0] || null;
+  const selItem = simSlot.item || null;
+
   const hp = calcHP(stats.hp, level);
+  let atkStat = calcStat(stats.atk, level);
+  let defStat = calcStat(stats.def, level);
+  let spatkStat = calcStat(stats.spatk, level);
+  let spdefStat = calcStat(stats.spdef, level);
+  let spdStat = calcStat(stats.spd, level);
+
+  // Ability static stat modifiers
+  if (selAbility === 'HUGEPOWER' || selAbility === 'PUREPOWER') atkStat = Math.floor(atkStat * 2);
+  if (selAbility === 'PODERSABIO') spatkStat = Math.floor(spatkStat * 1.5);
+
+  // Item static stat modifiers
+  const bi = selItem ? BATTLE_ITEMS.find(i => i.id === selItem) : null;
+  if (bi) {
+    if (bi.effect === 'atkMult') atkStat = Math.floor(atkStat * bi.val);
+    if (bi.effect === 'spatkMult') spatkStat = Math.floor(spatkStat * bi.val);
+    if (bi.effect === 'spdMult') spdStat = Math.floor(spdStat * bi.val);
+    if (bi.effect === 'spdefMult') spdefStat = Math.floor(spdefStat * bi.val);
+    if (bi.effect === 'eviolite' && p.evolutions && p.evolutions.length) {
+      defStat = Math.floor(defStat * bi.val);
+      spdefStat = Math.floor(spdefStat * bi.val);
+    }
+  }
+
+  // Boosts
+  atkStat = Math.floor(atkStat * boostMult(boosts.atk));
+  defStat = Math.floor(defStat * boostMult(boosts.def));
+  spatkStat = Math.floor(spatkStat * boostMult(boosts.spatk));
+  spdefStat = Math.floor(spdefStat * boostMult(boosts.spdef));
+  spdStat = Math.floor(spdStat * boostMult(boosts.spd));
+
+  // Weather speed abilities
+  if (simWeather === 'rain' && selAbility === 'SWIFTSWIM') spdStat *= 2;
+  if (simWeather === 'sun' && selAbility === 'CHLOROPHYLL') spdStat *= 2;
+  if (simWeather === 'sand' && selAbility === 'SANDRUSH') spdStat *= 2;
+  if (simWeather === 'snow' && selAbility === 'SLUSHRUSH') spdStat *= 2;
+
+  // Sand: +50% SpDef for Rock types
+  if (simWeather === 'sand' && (type1 === 'ROCK' || type2 === 'ROCK'))
+    spdefStat = Math.floor(spdefStat * 1.5);
+  // Snow: +50% Def for Ice types
+  if (simWeather === 'snow' && (type1 === 'ICE' || type2 === 'ICE'))
+    defStat = Math.floor(defStat * 1.5);
+
+  // Fur Coat doubles def vs physical
+  const hasEvo = p.evolutions && p.evolutions.length > 0;
+
   return {
-    name: formName, type1, type2, stats, abilities, level, hp,
-    atkStat: calcStat(stats.atk, level),
-    defStat: calcStat(stats.def, level),
-    spatkStat: calcStat(stats.spatk, level),
-    spdefStat: calcStat(stats.spdef, level),
-    spdStat: calcStat(stats.spd, level),
-    pokemon: p,
-    formIndex: simSlot.formIndex
+    name: formName, type1, type2, stats, abilities, level, hp, boosts,
+    atkStat, defStat, spatkStat, spdefStat, spdStat,
+    pokemon: p, formIndex: simSlot.formIndex,
+    ability: selAbility, item: selItem, battleItem: bi, hasEvo
   };
 }
 
@@ -1698,16 +1826,110 @@ function getAllMoves(pokemon) {
 function analyzeMoves(attacker, defender) {
   const moves = getAllMoves(attacker.pokemon);
   const eff = getTypeEffectiveness(defender.type1, defender.type2);
+  const atkAbility = attacker.ability;
+  const defAbility = defender.ability;
+  const bi = attacker.battleItem;
+  const defBi = defender.battleItem;
+
   return moves.map(m => {
-    if (m.category === 'Status') return { move: m, damage: {min:0,max:0}, effectiveness: 1, percentHP: {min:0,max:0}, canKO: false, isStatus: true };
-    const atkVal = m.category === 'Physical' ? attacker.atkStat : attacker.spatkStat;
-    const defVal = m.category === 'Physical' ? defender.defStat : defender.spdefStat;
-    const stab = (m.type === attacker.type1 || m.type === attacker.type2) ? 1.5 : 1;
-    const typeEff = eff[m.type] || 1;
-    const damage = calcDamageRange(attacker.level, m.power, atkVal, defVal, stab, typeEff);
+    if (m.category === 'Status') return { move: m, damage:{min:0,max:0}, effectiveness:1, percentHP:{min:0,max:0}, canKO:false, isStatus:true, mods:[] };
+
+    let moveType = m.type;
+    let movePower = m.power || 0;
+    const mods = [];
+
+    // -ate abilities: Normal -> type + 1.2x
+    const ateMap = {PIXILATE:'FAIRY',AERILATE:'FLYING',COLEOPTERO:'BUG',PIELHELADA:'ICE',PIELMALDITA:'GHOST',PIELELECTRICA:'ELECTRIC',LIQUIDVOICE:'WATER',PIELHERBACEA:'GRASS'};
+    if (ateMap[atkAbility] && moveType === 'NORMAL') {
+      moveType = ateMap[atkAbility]; movePower = Math.floor(movePower * 1.2);
+      mods.push({type:'ability',text:TYPE_ES[moveType]});
+    }
+
+    // Technician
+    if (atkAbility === 'TECHNICIAN' && movePower <= 60 && movePower > 0) { movePower = Math.floor(movePower * 1.5); mods.push({type:'ability',text:'Experto'}); }
+
+    let atkVal = m.category === 'Physical' ? attacker.atkStat : attacker.spatkStat;
+    let defVal = m.category === 'Physical' ? defender.defStat : defender.spdefStat;
+
+    // Fur Coat: halve physical damage
+    if (defAbility === 'FURCOAT' && m.category === 'Physical') { defVal = Math.floor(defVal * 2); mods.push({type:'ability',text:'Pelaje'}); }
+    // Ice Scales: halve special damage
+    if (defAbility === 'ICESCALES' && m.category === 'Special') { defVal = Math.floor(defVal * 2); mods.push({type:'ability',text:'Escama'}); }
+
+    let typeEff = eff[moveType] || 1;
+
+    // Defender ability immunities
+    const immuneType = ABILITY_IMMUNE[defAbility];
+    if (immuneType && moveType === immuneType) { typeEff = 0; mods.push({type:'ability',text:'Inmune'}); }
+
+    // Wonder Guard
+    if (defAbility === 'WONDERGUARD' && typeEff <= 1) { typeEff = 0; mods.push({type:'ability',text:'Superguarda'}); }
+
+    // STAB
+    let stab = (moveType === attacker.type1 || moveType === attacker.type2) ? 1.5 : 1;
+    if (atkAbility === 'ADAPTABILITY' && stab > 1) { stab = 2; mods.push({type:'ability',text:'STAB 2x'}); }
+    // Realeza: all-type STAB
+    if (atkAbility === 'REALEZA' && stab === 1) { stab = 1.5; mods.push({type:'ability',text:'Realeza'}); }
+
+    // Extra multiplier accumulator
+    let extra = 1;
+
+    // Attacker ability type boosts
+    const abilityTypeBoost = {
+      STEELWORKER:['STEEL',1.5], DRAGONSMAW:['DRAGON',1.5], INFLAMABLE:['FIRE',1.5],
+      ALBINISMO:['ICE',1.5], FLORACION:['GRASS',1.5], PEDANTE:['PSYCHIC',1.5],
+      TRANSPORTARROCA:['ROCK',1.2], FAIRYAURA:['FAIRY',1.3], DARKAURA:['DARK',1.3],
+      AURADORADA:['ELECTRIC',1.3], NEUROFORCE:['_SE_',1.25],
+    };
+    const ab = abilityTypeBoost[atkAbility];
+    if (ab) {
+      if (ab[0] === '_SE_' && typeEff > 1) { extra *= ab[1]; mods.push({type:'ability',text:'Cerebral'}); }
+      else if (moveType === ab[0]) { extra *= ab[1]; mods.push({type:'ability',text:TYPE_ES[ab[0]]}); }
+    }
+
+    // Sheer Force
+    if (atkAbility === 'SHEERFORCE') { extra *= 1.3; mods.push({type:'ability',text:'P.Bruta'}); }
+    // Tough Claws (contact moves ~most physical)
+    if (atkAbility === 'TOUGHCLAWS' && m.category === 'Physical') { extra *= 1.3; mods.push({type:'ability',text:'Garra'}); }
+
+    // Thick Fat: halve Fire/Ice damage
+    if (defAbility === 'THICKFAT' && (moveType === 'FIRE' || moveType === 'ICE')) { extra *= 0.5; mods.push({type:'ability',text:'Sebo'}); }
+    // Heatproof
+    if (defAbility === 'HEATPROOF' && moveType === 'FIRE') { extra *= 0.5; mods.push({type:'ability',text:'Ignifugo'}); }
+    // Filter / Solid Rock
+    if ((defAbility === 'FILTER' || defAbility === 'SOLIDROCK') && typeEff > 1) { extra *= 0.75; mods.push({type:'ability',text:'Filtro'}); }
+    // Purifying Salt
+    if (defAbility === 'PURIFYINGSALT' && moveType === 'GHOST') { extra *= 0.5; mods.push({type:'ability',text:'Sal'}); }
+
+    // Tinted Lens: NVE moves x2
+    if (atkAbility === 'TINTEDLENS' && typeEff > 0 && typeEff < 1) { extra *= 2; mods.push({type:'ability',text:'Cromolente'}); }
+
+    // Weather
+    if (simWeather === 'rain') {
+      if (moveType === 'WATER') { extra *= 1.5; mods.push({type:'weather',text:'Lluvia+'}); }
+      if (moveType === 'FIRE') { extra *= 0.5; mods.push({type:'weather',text:'Lluvia-'}); }
+    }
+    if (simWeather === 'sun') {
+      if (moveType === 'FIRE') { extra *= 1.5; mods.push({type:'weather',text:'Sol+'}); }
+      if (moveType === 'WATER') { extra *= 0.5; mods.push({type:'weather',text:'Sol-'}); }
+    }
+
+    // Solar Power: +50% SpAtk in sun (already in stat? No, apply as damage mult)
+    if (atkAbility === 'SOLARPOWER' && simWeather === 'sun' && m.category === 'Special') { extra *= 1.3; mods.push({type:'ability',text:'P.Solar'}); }
+
+    // Item modifiers
+    if (bi) {
+      if (bi.effect === 'dmgMult') { extra *= bi.val; mods.push({type:'item',text:bi.name}); }
+      if (bi.effect === 'seMult' && typeEff > 1) { extra *= bi.val; mods.push({type:'item',text:bi.name}); }
+      if (bi.effect === 'physMult' && m.category === 'Physical') { extra *= bi.val; mods.push({type:'item',text:bi.name}); }
+      if (bi.effect === 'specMult' && m.category === 'Special') { extra *= bi.val; mods.push({type:'item',text:bi.name}); }
+      if (bi.effect === 'typeMult' && moveType === bi.type) { extra *= bi.val; mods.push({type:'item',text:bi.name}); }
+    }
+
+    const damage = calcDamageRange(attacker.level, movePower, atkVal, defVal, stab, typeEff, extra);
     const pMin = defender.hp > 0 ? Math.round(damage.min / defender.hp * 100) : 0;
     const pMax = defender.hp > 0 ? Math.round(damage.max / defender.hp * 100) : 0;
-    return { move: m, damage, effectiveness: typeEff, percentHP: {min: pMin, max: pMax}, canKO: damage.max >= defender.hp, isStatus: false };
+    return { move: m, damage, effectiveness: typeEff, percentHP:{min:pMin,max:pMax}, canKO: damage.max >= defender.hp, isStatus:false, mods };
   }).sort((a, b) => {
     if (a.isStatus && !b.isStatus) return 1;
     if (!a.isStatus && b.isStatus) return -1;
@@ -1752,7 +1974,7 @@ function simSearchPokemon(prefix, query) {
 function simSelectPokemon(prefix, id) {
   const p = D.pokemon.find(pk => pk.id === id);
   if (!p) return;
-  const slot = { pokemon: p, formIndex: null, level: 50 };
+  const slot = { pokemon: p, formIndex: null, level: 50, ability: null, item: null, boosts:{atk:0,def:0,spatk:0,spdef:0,spd:0} };
   if (prefix === 'enemy') { simEnemy = slot; simEnemySearch = ''; }
   else { simPlayer = slot; simPlayerSearch = ''; }
   renderSimulator($('mainContent'));
@@ -1770,6 +1992,75 @@ function simSetLevel(prefix, val) {
   if (!slot) return;
   slot.level = Math.max(1, Math.min(100, parseInt(val) || 50));
   renderSimulatorResults();
+}
+
+function simSetAbility(prefix, val) {
+  const slot = prefix === 'enemy' ? simEnemy : simPlayer;
+  if (!slot) return;
+  slot.ability = val || null;
+  renderSimulatorResults();
+}
+
+function simSetItem(prefix, id) {
+  const slot = prefix === 'enemy' ? simEnemy : simPlayer;
+  if (!slot) return;
+  slot.item = id || null;
+  const input = document.getElementById(prefix + 'ItemInput');
+  const sug = document.getElementById(prefix + 'ItemSug');
+  if (id) {
+    const bi = BATTLE_ITEMS.find(i => i.id === id);
+    if (input) input.value = bi ? bi.name : '';
+  } else {
+    if (input) input.value = '';
+  }
+  if (sug) { sug.innerHTML = ''; sug.classList.remove('active'); }
+  renderSimulatorResults();
+}
+
+function simSearchItem(prefix, query) {
+  const sug = document.getElementById(prefix + 'ItemSug');
+  if (!sug) return;
+  if (!query || query.length < 1) { sug.innerHTML = ''; sug.classList.remove('active'); return; }
+  const q = query.toLowerCase();
+  const matches = BATTLE_ITEMS.filter(i => i.name.toLowerCase().includes(q)).slice(0, 10);
+  if (!matches.length) { sug.innerHTML = '<div class="sim-item-opt" style="color:var(--text-muted)">Sin resultados</div>'; sug.classList.add('active'); return; }
+  sug.innerHTML = matches.map(i => `<div class="sim-item-opt" onclick="simSetItem('${prefix}','${i.id}')">${i.name}</div>`).join('');
+  sug.classList.add('active');
+}
+
+function simSetBoost(prefix, stat, delta) {
+  const slot = prefix === 'enemy' ? simEnemy : simPlayer;
+  if (!slot) return;
+  if (!slot.boosts) slot.boosts = {atk:0,def:0,spatk:0,spdef:0,spd:0};
+  slot.boosts[stat] = Math.max(-6, Math.min(6, (slot.boosts[stat] || 0) + delta));
+  renderSimulator($('mainContent'));
+}
+
+function simApplyPreset(prefix, preset) {
+  const slot = prefix === 'enemy' ? simEnemy : simPlayer;
+  if (!slot) return;
+  if (!slot.boosts) slot.boosts = {atk:0,def:0,spatk:0,spdef:0,spd:0};
+  const presets = {
+    'swords': {atk:2}, 'dragon': {atk:1,spd:1}, 'calm': {spatk:1,spdef:1},
+    'nasty': {spatk:2}, 'shell': {atk:2,spd:2,def:-1,spdef:-1},
+    'quiver': {spatk:1,spdef:1,spd:1}, 'bulk': {def:1,spdef:1},
+  };
+  const p = presets[preset];
+  if (!p) return;
+  for (const [k,v] of Object.entries(p)) slot.boosts[k] = Math.max(-6, Math.min(6, (slot.boosts[k]||0) + v));
+  renderSimulator($('mainContent'));
+}
+
+function simResetBoosts(prefix) {
+  const slot = prefix === 'enemy' ? simEnemy : simPlayer;
+  if (!slot) return;
+  slot.boosts = {atk:0,def:0,spatk:0,spdef:0,spd:0};
+  renderSimulator($('mainContent'));
+}
+
+function simSetWeather(w) {
+  simWeather = w;
+  renderSimulator($('mainContent'));
 }
 
 function simClear(prefix) {
@@ -1805,15 +2096,13 @@ function renderSimPokemonPanel(prefix, slot, search) {
       });
       html += `</select>`;
     }
-
     html += `</div></div>`;
 
-    // Level
+    // Level + clear
     html += `<div class="sim-controls"><label>Nivel: <input type="number" value="${slot.level}" min="1" max="100" onchange="simSetLevel('${prefix}',this.value)"></label>`;
     html += `<button class="sim-clear" onclick="simClear('${prefix}')">Cambiar</button></div>`;
 
     // Mini stats
-    const sn = {hp:'PS',atk:'Atk',def:'Def',spatk:'SpA',spdef:'SpD',spd:'Spe'};
     html += `<div class="sim-mini-stats">`;
     html += `<div class="sim-stat-item"><span>PS</span><strong>${resolved.hp}</strong></div>`;
     html += `<div class="sim-stat-item"><span>Atk</span><strong>${resolved.atkStat}</strong></div>`;
@@ -1823,7 +2112,48 @@ function renderSimPokemonPanel(prefix, slot, search) {
     html += `<div class="sim-stat-item"><span>Spe</span><strong>${resolved.spdStat}</strong></div>`;
     html += `</div>`;
 
+    // === EXTRA CONTROLS ===
+    html += `<div class="sim-extra-controls">`;
+
+    // Ability selector
+    html += `<div class="sim-control-row"><label>Habilidad</label><select onchange="simSetAbility('${prefix}',this.value)">`;
+    for (const aName of resolved.abilities) {
+      const ab = D.abilityByName[aName];
+      const disp = ab ? ab.name : aName;
+      html += `<option value="${aName}" ${resolved.ability === aName ? 'selected' : ''}>${disp}</option>`;
+    }
+    html += `</select></div>`;
+
+    // Item selector
+    const curItem = slot.item ? BATTLE_ITEMS.find(i => i.id === slot.item) : null;
+    html += `<div class="sim-control-row"><label>Objeto</label><div class="sim-item-wrap"><input type="text" id="${prefix}ItemInput" placeholder="Buscar objeto..." value="${curItem ? curItem.name : ''}" oninput="simSearchItem('${prefix}',this.value)" onfocus="simSearchItem('${prefix}',this.value)" autocomplete="off"><div class="sim-item-suggestions" id="${prefix}ItemSug"></div></div>`;
+    if (slot.item) html += `<button class="sim-item-clear" onclick="simSetItem('${prefix}','')">x</button>`;
     html += `</div>`;
+
+    // Boost controls
+    const boosts = slot.boosts || {atk:0,def:0,spatk:0,spdef:0,spd:0};
+    const bNames = {atk:'Atk',def:'Def',spatk:'SpA',spdef:'SpD',spd:'Spe'};
+    html += `<div class="sim-boosts"><div class="sim-boosts-title">Modificadores de stats</div><div class="sim-boost-grid">`;
+    for (const [k, lbl] of Object.entries(bNames)) {
+      const v = boosts[k] || 0;
+      const cls2 = v > 0 ? 'positive' : v < 0 ? 'negative' : '';
+      const display = v > 0 ? '+'+v : v;
+      html += `<div class="sim-boost-item"><span>${lbl}</span><div class="sim-boost-val ${cls2}">${display}</div><div class="sim-boost-btns"><button onclick="simSetBoost('${prefix}','${k}',-1)">-</button><button onclick="simSetBoost('${prefix}','${k}',1)">+</button></div></div>`;
+    }
+    html += `</div>`;
+    html += `<div class="sim-quick-boosts">`;
+    html += `<button class="sim-quick-boost" onclick="simApplyPreset('${prefix}','swords')">Danza Espada</button>`;
+    html += `<button class="sim-quick-boost" onclick="simApplyPreset('${prefix}','dragon')">Danza Dragon</button>`;
+    html += `<button class="sim-quick-boost" onclick="simApplyPreset('${prefix}','calm')">Paz Mental</button>`;
+    html += `<button class="sim-quick-boost" onclick="simApplyPreset('${prefix}','nasty')">Maquinacion</button>`;
+    html += `<button class="sim-quick-boost" onclick="simApplyPreset('${prefix}','quiver')">Danza Aleteo</button>`;
+    html += `<button class="sim-quick-boost" onclick="simApplyPreset('${prefix}','shell')">Danza Caparazon</button>`;
+    const hasBoosts = Object.values(boosts).some(v => v !== 0);
+    if (hasBoosts) html += `<button class="sim-boost-reset" onclick="simResetBoosts('${prefix}')">Reset</button>`;
+    html += `</div></div>`;
+
+    html += `</div>`; // end extra-controls
+    html += `</div>`; // end sim-selected-pokemon
   }
   html += `</div>`;
   return html;
@@ -1843,7 +2173,6 @@ function renderSimulatorResults() {
   const effVsEnemy = getTypeEffectiveness(enemy.type1, enemy.type2);
 
   html += `<div class="card sim-section"><h3>Resumen de Tipos</h3><div class="sim-type-matchup">`;
-  // Enemy types vs player
   html += `<div class="sim-type-col"><h4>Debilidades de tu ${player.name}</h4>`;
   const playerWeakTypes = Object.entries(effVsPlayer).filter(([,v]) => v > 1).sort((a,b) => b[1]-a[1]);
   const playerResistTypes = Object.entries(effVsPlayer).filter(([,v]) => v > 0 && v < 1).sort((a,b) => a[1]-b[1]);
@@ -1925,8 +2254,6 @@ function renderSimulatorResults() {
   }
 
   html += `<div class="card sim-verdict ${verdictClass}"><h3>${verdictText}</h3><p>${verdictDetail}</p>`;
-
-  // Suggestion to switch
   if (verdictClass === 'disadvantage' || verdictClass === 'slight-disadvantage') {
     const goodTypes = enemyWeakTypes.map(([t]) => t);
     if (goodTypes.length) {
@@ -1988,8 +2315,14 @@ function renderMoveTable(moves, isPlayer, attackerType1, attackerType2) {
     const barCol = effBarColor(entry.effectiveness);
     const koCell = entry.canKO ? '<span class="sim-ko">KO</span>' : (entry.percentHP.max >= 50 ? '<span class="sim-half">50%+</span>' : '');
 
+    // Modifier tags
+    let modHtml = '';
+    if (entry.mods && entry.mods.length) {
+      modHtml = `<div class="sim-mod-tags">${entry.mods.map(mod => `<span class="sim-mod-tag ${mod.type}">${mod.text}</span>`).join('')}</div>`;
+    }
+
     html += `<tr class="sim-row ${ec}${best}">`;
-    html += `<td class="sim-td-name">${m.name || m.internalName}${stab}</td>`;
+    html += `<td class="sim-td-name">${m.name || m.internalName}${stab}${modHtml}</td>`;
     html += `<td>${typeBadge(m.type)}</td>`;
     html += `<td><span class="sim-cat ${catCls}">${catTxt}</span></td>`;
     html += `<td class="sim-td-num">${m.power}</td>`;
@@ -2022,7 +2355,16 @@ function renderMoveTable(moves, isPlayer, attackerType1, attackerType2) {
 
 function renderSimulator(main) {
   let html = `<h2 class="section-title">Simulador de Combate</h2>`;
-  html += `<p style="color:var(--text-secondary);margin-bottom:16px">Selecciona dos Pokemon para analizar el enfrentamiento. Los calculos usan stats base con 31 IVs y 0 EVs.</p>`;
+  html += `<p style="color:var(--text-secondary);margin-bottom:16px">Selecciona dos Pokemon para analizar el enfrentamiento. Configura habilidad, objeto, clima y boosts para calculos precisos.</p>`;
+
+  // Weather bar
+  html += `<div class="sim-weather-bar"><label>Clima:</label>`;
+  const weathers = [{id:'none',icon:'—',label:'Ninguno'},{id:'rain',icon:'☔',label:'Lluvia'},{id:'sun',icon:'☀️',label:'Sol'},{id:'sand',icon:'🏜️',label:'Arena'},{id:'snow',icon:'❄️',label:'Nieve'}];
+  for (const w of weathers) {
+    html += `<button class="sim-weather-btn ${simWeather===w.id?'active':''}" data-w="${w.id}" onclick="simSetWeather('${w.id}')">${w.icon} ${w.label}</button>`;
+  }
+  html += `</div>`;
+
   html += `<div class="sim-layout">`;
   html += renderSimPokemonPanel('enemy', simEnemy, simEnemySearch);
   html += renderSimPokemonPanel('player', simPlayer, simPlayerSearch);
@@ -2030,13 +2372,12 @@ function renderSimulator(main) {
   html += `<div id="simResults"></div>`;
   main.innerHTML = html;
 
-  // Restore search focus if typing
   if (!simEnemy && simEnemySearch) restoreFocus('enemySearch');
   if (!simPlayer && simPlayerSearch) restoreFocus('playerSearch');
 
-  // Render results if both selected
   if (simEnemy && simPlayer) renderSimulatorResults();
 }
+
 
 // ===== INIT =====
 async function init() {
